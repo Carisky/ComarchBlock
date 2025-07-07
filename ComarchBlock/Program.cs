@@ -24,15 +24,20 @@ namespace ComarchBlock
             var connStr = "Server=TSLCOMARCHDB;Database=ERPXL_TSL;User Id=sa_tsl;Password=@nalizyGrudzien24@;TrustServerCertificate=True;";
 
             var userGroups = LoadUserGroups("UserGroups.json");
-            var groupLimits = LoadGroupLimits("GroupAccessLimits.json");
+            var groupModuleLimits = LoadGroupModuleLimits("GroupModuleLimits.json");
+            var moduleLimits = LoadModuleLimits("ModuleLimits.json");
 
             Console.WriteLine("Loaded Users + Groups:");
             foreach (var kv in userGroups)
                 Console.WriteLine($"  User: {kv.Key} → Group: {kv.Value}");
 
-            Console.WriteLine("\nLoaded Group Limits:");
-            foreach (var kv in groupLimits)
-                Console.WriteLine($"  Group: {kv.Key.Group}, Hour: {kv.Key.Hour} → Limit: {kv.Value}");
+            Console.WriteLine("\nLoaded Group Module Limits:");
+            foreach (var kv in groupModuleLimits)
+                Console.WriteLine($"  Group: {kv.Key.Group}, Module: {kv.Key.Module}, Hour: {kv.Key.Hour} → Limit: {kv.Value}");
+
+            Console.WriteLine("\nLoaded Module Limits:");
+            foreach (var kv in moduleLimits)
+                Console.WriteLine($"  Module: {kv.Key} → Limit: {kv.Value}");
 
             var options = new DbContextOptionsBuilder<ERPXL_TSLContext>()
                 .UseSqlServer(connStr)
@@ -49,6 +54,7 @@ namespace ComarchBlock
                    {
                        Spid = (int)s.SesAdospid.Value,
                        UserName = s.SesOpeIdent,
+                       Module = s.SesModul,
                        Start = (long)(s.SesStart ?? 0)
                    })
                    .ToList();
@@ -62,39 +68,69 @@ namespace ComarchBlock
                     return;
                 }
 
-                var sessionsWithGroups = sessions
-                    .Where(s => userGroups.ContainsKey(s.UserName))
-                    .Select(s => (s.Spid, s.UserName, s.Start, GroupCode: userGroups[s.UserName]))
-                    .GroupBy(s => s.GroupCode);
+                // enforce module based limits first
+                var sessionsByModule = sessions.GroupBy(s => s.Module);
 
-                foreach (var group in sessionsWithGroups)
+                foreach (var mod in sessionsByModule)
                 {
-                    var key = (group.Key, currentHour);
-                    if (!groupLimits.TryGetValue(key, out var maxUsers))
+                    if (!moduleLimits.TryGetValue(mod.Key ?? string.Empty, out var max))
                     {
-                        Console.WriteLine($"\n[Group: {group.Key}] — has no limit for {currentHour}:00, skip.");
+                        Console.WriteLine($"\n[Module: {mod.Key}] — no limit, skip.");
                         continue;
                     }
 
-                    var sorted = group.OrderBy(s => s.Start).ToList();
-                    var filtered = sorted.Where(s => !ExceptionUsers.Contains(s.UserName)).ToList();
+                    var active = mod.OrderBy(s => s.Start)
+                                     .Where(s => !ExceptionUsers.Contains(s.UserName))
+                                     .ToList();
 
-                    Console.WriteLine($"\n[Group: {group.Key}] Hour: {currentHour}:00");
-                    Console.WriteLine($"  Sessions Amount: {group.Count()}, without exqluses: {filtered.Count}, limit: {maxUsers}");
+                    Console.WriteLine($"\n[Module: {mod.Key}] Users: {active.Count}, limit: {max}");
 
-                    if (filtered.Count <= maxUsers)
+                    if (active.Count > max)
                     {
-                        Console.WriteLine("  Limit not ovverfited. No one will be terminated.");
-                        continue;
+                        var toTerminate = active.Skip(max).ToList();
+                        Console.WriteLine($"  Over limit. Will terminate {toTerminate.Count} sessions:");
+                        foreach (var s in toTerminate)
+                        {
+                            Console.WriteLine($"    - User: {s.UserName}, SPID: {s.Spid}, Start: {s.Start}");
+                            KillSession(s.Spid, s.UserName, context, "ModuleLimit");
+                            sessions.RemoveAll(x => x.Spid == s.Spid);
+                        }
+                    }
+                }
+
+                var sessionsByGroupModule = sessions
+                    .Where(s => userGroups.ContainsKey(s.UserName))
+                    .Select(s => new { Session = s, Group = userGroups[s.UserName] })
+                    .GroupBy(x => (x.Group, x.Session.Module));
+
+                foreach (var gm in sessionsByGroupModule)
+                {
+                    var key = (gm.Key.Group, gm.Key.Module ?? string.Empty, currentHour);
+                    int max;
+                    if (!groupModuleLimits.TryGetValue(key, out max))
+                    {
+                        if (!moduleLimits.TryGetValue(gm.Key.Module ?? string.Empty, out max))
+                        {
+                            Console.WriteLine($"\n[Group: {gm.Key.Group}, Module: {gm.Key.Module}] — no limit, skip.");
+                            continue;
+                        }
                     }
 
-                    var toKill = filtered.Skip(maxUsers).ToList();
+                    var ordered = gm.OrderBy(x => x.Session.Start)
+                                    .Select(x => x.Session)
+                                    .Where(s => !ExceptionUsers.Contains(s.UserName))
+                                    .ToList();
 
-                    Console.WriteLine($"  Overlimited. will be terminated {toKill.Count} sessions:");
-                    foreach (var s in toKill)
+                    Console.WriteLine($"\n[Group: {gm.Key.Group}] Module: {gm.Key.Module} → {ordered.Count} sessions, limit {max}");
+
+                    if (ordered.Count > max)
                     {
-                        Console.WriteLine($"    - User: {s.UserName}, SPID: {s.Spid}, Start: {s.Start}");
-                        KillSession(s.Spid, s.UserName, context, "Ovverlimited");
+                        var toKill = ordered.Skip(max).ToList();
+                        foreach (var s in toKill)
+                        {
+                            Console.WriteLine($"    - User: {s.UserName}, SPID: {s.Spid}, Start: {s.Start}");
+                            KillSession(s.Spid, s.UserName, context, "ModuleGroupLimit");
+                        }
                     }
                 }
             }
@@ -109,12 +145,19 @@ namespace ComarchBlock
             return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
         }
 
-        static Dictionary<(string Group, int Hour), int> LoadGroupLimits(string path)
+        static Dictionary<(string Group, string Module, int Hour), int> LoadGroupModuleLimits(string path)
         {
-            if (!File.Exists(path)) return new Dictionary<(string, int), int>();
+            if (!File.Exists(path)) return new Dictionary<(string, string, int), int>();
             var json = File.ReadAllText(path);
-            var list = JsonConvert.DeserializeObject<List<GroupLimit>>(json);
-            return list.ToDictionary(x => (x.GroupCode, x.Hour), x => x.MaxUsers);
+            var list = JsonConvert.DeserializeObject<List<GroupModuleLimit>>(json);
+            return list.ToDictionary(x => (x.GroupCode, x.Module, x.Hour), x => x.MaxLicenses);
+        }
+
+        static Dictionary<string, int> LoadModuleLimits(string path)
+        {
+            if (!File.Exists(path)) return new Dictionary<string, int>();
+            var json = File.ReadAllText(path);
+            return JsonConvert.DeserializeObject<Dictionary<string, int>>(json);
         }
 
         static void KillSession(int spid, string user, ERPXL_TSLContext context, string reason)
@@ -137,17 +180,19 @@ namespace ComarchBlock
             File.AppendAllText("kill_log.txt", log + Environment.NewLine);
         }
 
-        class GroupLimit
+        class GroupModuleLimit
         {
             public string GroupCode { get; set; }
+            public string Module { get; set; }
             public int Hour { get; set; }
-            public int MaxUsers { get; set; }
+            public int MaxLicenses { get; set; }
         }
 
         class SessionInfo
         {
             public int Spid { get; set; }
             public string UserName { get; set; }
+            public string Module { get; set; }
             public long Start { get; set; }
         }
 
