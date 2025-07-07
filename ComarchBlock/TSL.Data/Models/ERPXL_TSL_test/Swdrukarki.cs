@@ -1,0 +1,13 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace TSL.Data.Models.ERPXL_TSL_test;
+
+public partial class Swdrukarki
+{
+    public string SwdSerwerNazwa { get; set; } = null!;
+
+    public string SwdDrukarkaNazwa { get; set; } = null!;
+
+    public string? SwdOpis { get; set; }
+}

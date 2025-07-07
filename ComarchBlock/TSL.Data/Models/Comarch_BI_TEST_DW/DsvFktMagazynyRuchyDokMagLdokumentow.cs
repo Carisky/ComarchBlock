@@ -1,0 +1,95 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace TSL.Data.Models.Comarch_BI_TEST_DW;
+
+public partial class DsvFktMagazynyRuchyDokMagLdokumentow
+{
+    public long MgmId { get; set; }
+
+    public int MgmAbcgid { get; set; }
+
+    public int MgmAlokacjaId { get; set; }
+
+    public int MgmRejonId { get; set; }
+
+    public string? MgmWymObjGidLp { get; set; }
+
+    public string? MgmOrgWymId { get; set; }
+
+    public int? MgmTypKwoty { get; set; }
+
+    public int? MgmKierunek { get; set; }
+
+    public string? MgmOrgAtrId { get; set; }
+
+    public int? MgmCzmid { get; set; }
+
+    public decimal? MgmMobjetosc { get; set; }
+
+    public decimal? MgmMwaga { get; set; }
+
+    public decimal? MgmMiloscMagRuch { get; set; }
+
+    public int MgmDstId { get; set; }
+
+    public int MgmDostawaId { get; set; }
+
+    public int MgmDokumentHandId { get; set; }
+
+    public int MgmDokumentMagId { get; set; }
+
+    public int MgmCechaId { get; set; }
+
+    public int? MgmCzdid { get; set; }
+
+    public int MgmZrodgid { get; set; }
+
+    public int MgmBudzetId { get; set; }
+
+    public int? MgmProdId { get; set; }
+
+    public int MgmPartiaId { get; set; }
+
+    public int MgmMagId { get; set; }
+
+    public int MgmKntId { get; set; }
+
+    public int? MgmJednostkaPomocId { get; set; }
+
+    public int MgmJednostkaPodstId { get; set; }
+
+    public int MgmFirmaId { get; set; }
+
+    public string? MgmPozycjaId { get; set; }
+
+    public int? MgmWymTyp { get; set; }
+
+    public DateTime MgmTsupdate { get; set; }
+
+    public DateTime MgmTsinsert { get; set; }
+
+    public int? MgmInsertSubTransformationId { get; set; }
+
+    public int MgmInsertTransformationId { get; set; }
+
+    public int MgmUpdateTransformationId { get; set; }
+
+    public int? MgmUpdateSubTransformationId { get; set; }
+
+    public string? MgmOpis { get; set; }
+
+    public string MgmDirtyOrgId { get; set; } = null!;
+
+    public string MgmOrgId { get; set; } = null!;
+
+    public int MgmPrmgid { get; set; }
+
+    public int MgmOpeid { get; set; }
+
+    public int MgmOpemid { get; set; }
+
+    public int MgmOpewid { get; set; }
+
+    public int MgmOpezid { get; set; }
+}

@@ -1,0 +1,83 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace TSL.Data.Models.Comarch_BI_TEST_DW;
+
+public partial class DsvFktZestawieniaKsiegowe
+{
+    public int? Wym02109Id { get; set; }
+
+    public int? Wym02110Id { get; set; }
+
+    public int? Wym02111Id { get; set; }
+
+    public int? Wym02130Id { get; set; }
+
+    public int? Wym02134Id { get; set; }
+
+    public int DtAlokacjaId { get; set; }
+
+    public int DtBudzetId { get; set; }
+
+    public int DtBuforId { get; set; }
+
+    public int? DtCzdid { get; set; }
+
+    public int? DtCzmid { get; set; }
+
+    public int DtDziennikId { get; set; }
+
+    public int DtFirmaId { get; set; }
+
+    public int DtKntId { get; set; }
+
+    public string? DtKonto { get; set; }
+
+    public int DtLokId { get; set; }
+
+    public decimal? DtMkwota { get; set; }
+
+    public decimal? DtMkwotaMa { get; set; }
+
+    public decimal? DtMkwotaOrg { get; set; }
+
+    public decimal? DtMkwotaWn { get; set; }
+
+    public string? DtOpis { get; set; }
+
+    public string? DtOrgId { get; set; }
+
+    public int DtPerspektywaId { get; set; }
+
+    public int DtProjektId { get; set; }
+
+    public int DtStrFrmId { get; set; }
+
+    public int DtWalutaId { get; set; }
+
+    public int DtZrodgid { get; set; }
+
+    public int DtZstid { get; set; }
+
+    public string? DtZstnazwa { get; set; }
+
+    public decimal? KwotaBdtcalc { get; set; }
+
+    public decimal? KwotaDsvDla1 { get; set; }
+
+    public decimal? KwotaDsvDlaNieSld { get; set; }
+
+    public decimal? KwotaDsvDlaSldnie { get; set; }
+
+    public decimal? KwotaDsvDlaSldtak { get; set; }
+
+    public decimal? KwotaOrgDsvDla1 { get; set; }
+
+    public decimal? KwotaOrgDsvDlaNieSld { get; set; }
+
+    public decimal? KwotaOrgDsvDlaSldnie { get; set; }
+
+    public decimal? KwotaOrgDsvDlaSldtak { get; set; }
+
+    public int? WsadInsertId { get; set; }
+}

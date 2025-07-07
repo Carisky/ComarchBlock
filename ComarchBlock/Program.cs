@@ -17,12 +17,16 @@ namespace ComarchBlock
 
         static void Main()
         {
-            var connStr = "Server=TSLCOMARCHDB;Database=ERPXL_TSL;User Id=sa_tsl;Password=@nalizyGrudzien24@;";
+            var config = AppConfig.Load("config.xml");
+            Console.WriteLine($"Config: ActiveUsersCheck = {config.ActiveUsersCheck}");
+
+
+            var connStr = "Server=TSLCOMARCHDB;Database=ERPXL_TSL;User Id=sa_tsl;Password=@nalizyGrudzien24@;TrustServerCertificate=True;";
 
             var userGroups = LoadUserGroups("UserGroups.json");
             var groupLimits = LoadGroupLimits("GroupAccessLimits.json");
 
-            Console.WriteLine("Загружены пользователи и группы:");
+            Console.WriteLine("Loaded Users + Groups:");
             foreach (var kv in userGroups)
                 Console.WriteLine($"  User: {kv.Key} → Group: {kv.Value}");
 
@@ -51,6 +55,12 @@ namespace ComarchBlock
 
 
                 Console.WriteLine($"\nFound {sessions.Count} active sessions.");
+
+                if (sessions.Count <= config.ActiveUsersCheck)
+                {
+                    Console.WriteLine($"Active sessions ({sessions.Count}) ≤ threshold ({config.ActiveUsersCheck}). Skip processing.");
+                    return;
+                }
 
                 var sessionsWithGroups = sessions
                     .Where(s => userGroups.ContainsKey(s.UserName))

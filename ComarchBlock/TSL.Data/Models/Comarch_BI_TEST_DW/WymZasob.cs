@@ -1,0 +1,64 @@
+﻿using System;
+using System.Collections.Generic;
+
+namespace TSL.Data.Models.Comarch_BI_TEST_DW;
+
+public partial class WymZasob
+{
+    public int ZasRowId { get; set; }
+
+    public int ZasId { get; set; }
+
+    /// <summary>
+    /// Relation to Źródło danych dimension
+    /// </summary>
+    public int ZasZrodgid { get; set; }
+
+    public string ZasOrgId { get; set; } = null!;
+
+    public string ZasDirtyOrgId { get; set; } = null!;
+
+    public string ZasNazwa { get; set; } = null!;
+
+    public string? ZasOpis { get; set; }
+
+    public string? ZasParDirtyOrgId { get; set; }
+
+    public string? ZasParCleanOrgId { get; set; }
+
+    public int? ZasParGid { get; set; }
+
+    public DateTime ZasTsinsert { get; set; }
+
+    public DateTime ZasTsupdate { get; set; }
+
+    public DateTime ZasTimeFrom { get; set; }
+
+    public DateTime? ZasTimeTo { get; set; }
+
+    public int ZasChecksumKimball1 { get; set; }
+
+    public int ZasChecksumKimball2 { get; set; }
+
+    public int ZasUpdateSubTransformationId { get; set; }
+
+    public int? ZasUpdateTransformationId { get; set; }
+
+    public int ZasInsertSubTransformationId { get; set; }
+
+    public int? ZasInsertTransformationId { get; set; }
+
+    public byte[] ZasRowVersion { get; set; } = null!;
+
+    public string? ZasRodzajZasobu { get; set; }
+
+    public virtual ICollection<FktMarszrutum> FktMarszruta { get; set; } = new List<FktMarszrutum>();
+
+    public virtual ICollection<FktPrzestoje> FktPrzestojes { get; set; } = new List<FktPrzestoje>();
+
+    public virtual ICollection<FktRezerwacje> FktRezerwacjes { get; set; } = new List<FktRezerwacje>();
+
+    public virtual ICollection<WymNarzedzium> WymNarzedzia { get; set; } = new List<WymNarzedzium>();
+
+    public virtual WymZrodloDanych ZasZrodg { get; set; } = null!;
+}
