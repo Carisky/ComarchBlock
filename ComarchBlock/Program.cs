@@ -1,100 +1,99 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using TSL.Data.Models.ERPXL_TSL;
+
 namespace ComarchBlock
 {
     internal class Program
     {
-        static readonly HashSet<string> ExceptionUsers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        static readonly HashSet<string> ExceptionUsers = new(StringComparer.OrdinalIgnoreCase)
         {
-            "ADMIN"
+            "ADMIN","Zarząd","Biuro Księgowe","TSL SILESIA SP. Z O.O."
         };
 
         static void Main()
         {
-            var config = AppConfig.Load("config.xml");
-            Console.WriteLine($"Config: ActiveUsersCheck = {config.ActiveUsersCheck}");
-
-
-            var connStr = "Server=TSLCOMARCHDB;Database=ERPXL_TSL;User Id=sa_tsl;Password=@nalizyGrudzien24@;TrustServerCertificate=True;";
-
-            var userGroups = LoadUserGroups("UserGroups.json");
-            var groupModuleLimits = LoadGroupModuleLimits("GroupModuleLimits.json");
-            var moduleLimits = LoadModuleLimits("ModuleLimits.json");
-
-            Console.WriteLine("Loaded Users + Groups:");
-            foreach (var kv in userGroups)
-                Console.WriteLine($"  User: {kv.Key} → Group: {kv.Value}");
-
-            Console.WriteLine("\nLoaded Group Module Limits:");
-            foreach (var kv in groupModuleLimits)
-                Console.WriteLine($"  Group: {kv.Key.Group}, Module: {kv.Key.Module}, Hour: {kv.Key.Hour} → Limit: {kv.Value}");
-
-            Console.WriteLine("\nLoaded Module Limits:");
-            foreach (var kv in moduleLimits)
-                Console.WriteLine($"  Module: {kv.Key} → Limit: {kv.Value}");
-
-            var options = new DbContextOptionsBuilder<ERPXL_TSLContext>()
-                .UseSqlServer(connStr)
-                .Options;
-
-            using (var context = new ERPXL_TSLContext(options))
+            try
             {
-                var now = DateTime.Now;
-                var currentHour = now.Hour;
+                var config = LoadConfig("config.xml");
+                if (config == null) return;
 
-                var sessions = context.Sesjes
-                   .Where(s => s.SesStop == 0 && s.SesAdospid != null)
-                   .Select(s => new SessionInfo
-                   {
-                       Spid = (int)s.SesAdospid.Value,
-                       UserName = s.SesOpeIdent,
-                       Module = s.SesModul,
-                       Start = (long)(s.SesStart ?? 0)
-                   })
-                   .ToList();
+                var connStr = "Server=TSLCOMARCHDB;Database=ERPXL_TSL;User Id=sa_tsl;Password=@nalizyGrudzien24@;TrustServerCertificate=True;";
+                var userGroups = LoadUserGroups("UserGroups.json");
+                var groupModuleLimits = LoadGroupModuleLimits("GroupModuleLimits.json");
+                var moduleLimits = LoadModuleLimits("ModuleLimits.json");
+                var linkedModulesMap = LoadLinkedModules("LinkedModules.json");
 
+                var options = new DbContextOptionsBuilder<ERPXL_TSLContext>()
+                    .UseSqlServer(connStr)
+                    .Options;
 
-                Console.WriteLine($"\nFound {sessions.Count} active sessions.");
+                using var context = new ERPXL_TSLContext(options);
 
-                if (sessions.Count <= config.ActiveUsersCheck)
+                List<SessionInfo> sessions;
+                try
                 {
-                    Console.WriteLine($"Active sessions ({sessions.Count}) ≤ threshold ({config.ActiveUsersCheck}). Skip processing.");
+                    sessions = context.Sesjes
+                       .Where(s => s.SesStop == 0 && s.SesAdospid != null)
+                       .Select(s => new SessionInfo
+                       {
+                           Spid = (int)s.SesAdospid.Value,
+                           UserName = s.SesOpeIdent,
+                           Module = s.SesModul,
+                           Start = (long)(s.SesStart ?? 0)
+                       })
+                       .ToList();
+                    Log("INFO", $"Found {sessions.Count} active sessions.");
+                }
+                catch (Exception ex)
+                {
+                    Log("ERROR", $"Failed to read sessions: {ex.Message}");
                     return;
                 }
 
-                // enforce module based limits first
+                if (sessions.Count <= config.ActiveUsersCheck)
+                {
+                    Log("INFO", $"Active sessions ({sessions.Count}) ≤ threshold ({config.ActiveUsersCheck}). Skip processing.");
+                    return;
+                }
+
+                var now = DateTime.Now;
+                var currentHour = now.Hour;
+
                 var sessionsByModule = sessions.GroupBy(s => s.Module);
 
                 foreach (var mod in sessionsByModule)
                 {
-                    if (!moduleLimits.TryGetValue(mod.Key ?? string.Empty, out var max))
+                    try
                     {
-                        Console.WriteLine($"\n[Module: {mod.Key}] — no limit, skip.");
-                        continue;
-                    }
-
-                    var active = mod.OrderBy(s => s.Start)
-                                     .Where(s => !ExceptionUsers.Contains(s.UserName))
-                                     .ToList();
-
-                    Console.WriteLine($"\n[Module: {mod.Key}] Users: {active.Count}, limit: {max}");
-
-                    if (active.Count > max)
-                    {
-                        var toTerminate = active.Skip(max).ToList();
-                        Console.WriteLine($"  Over limit. Will terminate {toTerminate.Count} sessions:");
-                        foreach (var s in toTerminate)
+                        if (!moduleLimits.TryGetValue(mod.Key ?? string.Empty, out var max))
                         {
-                            Console.WriteLine($"    - User: {s.UserName}, SPID: {s.Spid}, Start: {s.Start}");
-                            KillSession(s.Spid, s.UserName, context, "ModuleLimit");
-                            sessions.RemoveAll(x => x.Spid == s.Spid);
+                            Log("INFO", $"[Module: {mod.Key}] — no limit, skip.");
+                            continue;
                         }
+
+                        var active = mod.OrderBy(s => s.Start)
+                                         .Where(s => !ExceptionUsers.Contains(s.UserName))
+                                         .ToList();
+
+                        if (active.Count > max)
+                        {
+                            var toTerminate = active.Skip(max).ToList();
+                            foreach (var s in toTerminate)
+                            {
+                                KillSession(s.Spid, s.UserName, context, "ModuleLimit", s, null, max, active);
+                                sessions.RemoveAll(x => x.Spid == s.Spid);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("ERROR", $"Exception during module limit check for {mod.Key}: {ex.Message}");
                     }
                 }
 
@@ -105,79 +104,206 @@ namespace ComarchBlock
 
                 foreach (var gm in sessionsByGroupModule)
                 {
-                    var key = (gm.Key.Group, gm.Key.Module ?? string.Empty, currentHour);
-                    int max;
-                    if (!groupModuleLimits.TryGetValue(key, out max))
+                    try
                     {
-                        if (!moduleLimits.TryGetValue(gm.Key.Module ?? string.Empty, out max))
+                        var module = gm.Key.Module ?? string.Empty;
+                        var group = gm.Key.Group;
+                        var key = (group, module, currentHour);
+
+                        int max;
+
+                        if (!groupModuleLimits.TryGetValue(key, out max))
                         {
-                            Console.WriteLine($"\n[Group: {gm.Key.Group}, Module: {gm.Key.Module}] — no limit, skip.");
-                            continue;
+                            string matchedLinkedKey = linkedModulesMap
+                                .FirstOrDefault(kv => kv.Value.Contains(module)).Key;
+
+                            if (!string.IsNullOrEmpty(matchedLinkedKey))
+                            {
+                                var linkedKey = (group, matchedLinkedKey, currentHour);
+                                if (!groupModuleLimits.TryGetValue(linkedKey, out max))
+                                {
+                                    if (!moduleLimits.TryGetValue(module, out max))
+                                    {
+                                        Log("INFO", $"[Group: {group}, Module: {module}] — no limit, skip.");
+                                        continue;
+                                    }
+                                }
+                            }
+                            else if (!moduleLimits.TryGetValue(module, out max))
+                            {
+                                Log("INFO", $"[Group: {group}, Module: {module}] — no limit, skip.");
+                                continue;
+                            }
                         }
+
+                        var ordered = gm.OrderBy(x => x.Session.Start)
+                                        .Select(x => x.Session)
+                                        .Where(s => !ExceptionUsers.Contains(s.UserName))
+                                        .ToList();
+
+                        if (ordered.Count > max)
+                        {
+                            var toKill = ordered.Skip(max).ToList();
+                            foreach (var s in toKill)
+                            {
+                                KillSession(s.Spid, s.UserName, context, "ModuleGroupLimit", s, group, max, ordered);
+                            }
+                        }
+
                     }
-
-                    var ordered = gm.OrderBy(x => x.Session.Start)
-                                    .Select(x => x.Session)
-                                    .Where(s => !ExceptionUsers.Contains(s.UserName))
-                                    .ToList();
-
-                    Console.WriteLine($"\n[Group: {gm.Key.Group}] Module: {gm.Key.Module} → {ordered.Count} sessions, limit {max}");
-
-                    if (ordered.Count > max)
+                    catch (Exception ex)
                     {
-                        var toKill = ordered.Skip(max).ToList();
-                        foreach (var s in toKill)
-                        {
-                            Console.WriteLine($"    - User: {s.UserName}, SPID: {s.Spid}, Start: {s.Start}");
-                            KillSession(s.Spid, s.UserName, context, "ModuleGroupLimit");
-                        }
+                        Log("ERROR", $"Exception during group/module limit check: {ex.Message}");
                     }
                 }
             }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Critical error in Main: {ex.Message}");
+            }
         }
 
-
+        static AppConfig LoadConfig(string path)
+        {
+            try
+            {
+                var config = AppConfig.Load(path);
+                Log("INFO", $"Loaded config. ActiveUsersCheck = {config.ActiveUsersCheck}");
+                return config;
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Failed to load config: {ex.Message}");
+                return null;
+            }
+        }
 
         static Dictionary<string, string> LoadUserGroups(string path)
         {
-            if (!File.Exists(path)) return new Dictionary<string, string>();
-            var json = File.ReadAllText(path);
-            return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+            try
+            {
+                if (!File.Exists(path)) return new();
+                var json = File.ReadAllText(path);
+                return JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Failed to load {path}: {ex.Message}");
+                return new();
+            }
         }
 
         static Dictionary<(string Group, string Module, int Hour), int> LoadGroupModuleLimits(string path)
         {
-            if (!File.Exists(path)) return new Dictionary<(string, string, int), int>();
-            var json = File.ReadAllText(path);
-            var list = JsonConvert.DeserializeObject<List<GroupModuleLimit>>(json);
-            return list.ToDictionary(x => (x.GroupCode, x.Module, x.Hour), x => x.MaxLicenses);
+            try
+            {
+                if (!File.Exists(path)) return new();
+                var json = File.ReadAllText(path);
+                var list = JsonConvert.DeserializeObject<List<GroupModuleLimit>>(json);
+                return list.ToDictionary(x => (x.GroupCode, x.Module, x.Hour), x => x.MaxLicenses);
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Failed to load {path}: {ex.Message}");
+                return new();
+            }
         }
 
         static Dictionary<string, int> LoadModuleLimits(string path)
         {
-            if (!File.Exists(path)) return new Dictionary<string, int>();
-            var json = File.ReadAllText(path);
-            return JsonConvert.DeserializeObject<Dictionary<string, int>>(json);
-        }
-
-        static void KillSession(int spid, string user, ERPXL_TSLContext context, string reason)
-        {
             try
             {
-                context.Database.ExecuteSqlRaw($"KILL {spid}");
-                LogKill(user, spid, reason);
-                Console.WriteLine($"KILL {spid} ({reason})");
+                if (!File.Exists(path)) return new();
+                var json = File.ReadAllText(path);
+                return JsonConvert.DeserializeObject<Dictionary<string, int>>(json);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Ошибка KILL {spid}: {ex.Message}");
+                Log("ERROR", $"Failed to load {path}: {ex.Message}");
+                return new();
             }
         }
 
-        static void LogKill(string user, int spid, string reason)
+        static Dictionary<string, List<string>> LoadLinkedModules(string path)
         {
-            var log = $"[{DateTime.Now}] KILL {spid} USER={user} REASON={reason}";
-            File.AppendAllText("kill_log.txt", log + Environment.NewLine);
+            try
+            {
+                if (!File.Exists(path)) return new();
+                var json = File.ReadAllText(path);
+                return JsonConvert.DeserializeObject<Dictionary<string, List<string>>>(json);
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Failed to load {path}: {ex.Message}");
+                return new();
+            }
+        }
+
+        static void KillSession(
+            int spid,
+            string user,
+            ERPXL_TSLContext context,
+            string reason,
+            SessionInfo session = null,
+            string group = null,
+            int? max = null,
+            List<SessionInfo> related = null)
+            {
+                try
+                {
+                    context.Database.ExecuteSqlRaw($"KILL {spid}");
+                    LogKill(user, spid, reason, session, group, max, related);
+                    Log("INFO", $"KILL {spid} ({reason})");
+                }
+                catch (Exception ex)
+                {
+                    Log("ERROR", $"Ошибка KILL {spid}: {ex.Message}");
+                }
+            }
+
+        static void LogKill(
+           string user,
+           int spid,
+           string reason,
+           SessionInfo session = null,
+           string group = null,
+           int? max = null,
+           List<SessionInfo> related = null)
+            {
+                var log = new StringBuilder();
+
+                log.Append($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] KILL {spid} USER={user}");
+
+                if (session != null)
+                    log.Append($" MODULE={session.Module} START={session.Start}");
+
+                if (!string.IsNullOrEmpty(group))
+                    log.Append($" GROUP={group}");
+
+                if (max.HasValue)
+                    log.Append($" MAX={max.Value}");
+
+                log.Append($" REASON={reason}");
+
+                File.AppendAllText("kill_log.txt", log.ToString() + Environment.NewLine, Encoding.UTF8);
+
+                if (related != null && related.Count > 0)
+                {
+                    var json = JsonConvert.SerializeObject(related.Select(x => new
+                    {
+                        x.UserName,
+                        x.Module,
+                        x.Start
+                    }), Formatting.Indented);
+
+                    File.AppendAllText("kill_log.txt", json + Environment.NewLine + Environment.NewLine, Encoding.UTF8);
+                }
+            }
+
+        static void Log(string status, string message)
+        {
+            var logLine = $"[{status}][{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
+            File.AppendAllText("process_log.txt", logLine + Environment.NewLine, Encoding.UTF8);
         }
 
         class GroupModuleLimit
@@ -195,7 +321,5 @@ namespace ComarchBlock
             public string Module { get; set; }
             public long Start { get; set; }
         }
-
     }
 }
-

@@ -1,7 +1,8 @@
 {
   "Administrator": 10,
-  "Sprzedaż": 20,
-  "Księgowość": 8,
+  "Sprzedaż": 6,
+  "Księgowość": 6,
   "X:MIGRATOR_CDNXL": 2,
-  "X:Import2ERPXL": 2
+  "X:Import2ERPXL": 2,
+  "Import": 6
 }
