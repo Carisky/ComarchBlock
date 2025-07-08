@@ -248,18 +248,37 @@ namespace ComarchBlock
             string group = null,
             int? max = null,
             List<SessionInfo> related = null)
+        {
+            try
             {
-                try
+                EndSession(spid, context);
+                context.Database.ExecuteSqlRaw($"KILL {spid}");
+                LogKill(user, spid, reason, session, group, max, related);
+                Log("INFO", $"KILL {spid} ({reason})");
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Ошибка KILL {spid}: {ex.Message}");
+            }
+        }
+
+        static void EndSession(int spid, ERPXL_TSLContext context)
+        {
+            try
+            {
+                var ses = context.Sesjes.FirstOrDefault(s => s.SesAdospid == spid && s.SesStop == 0);
+                if (ses != null)
                 {
-                    context.Database.ExecuteSqlRaw($"KILL {spid}");
-                    LogKill(user, spid, reason, session, group, max, related);
-                    Log("INFO", $"KILL {spid} ({reason})");
-                }
-                catch (Exception ex)
-                {
-                    Log("ERROR", $"Ошибка KILL {spid}: {ex.Message}");
+                    ses.SesStop = (int)DateTimeOffset.Now.ToUnixTimeSeconds();
+                    ses.SesAktywna = 0;
+                    context.SaveChanges();
                 }
             }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Ошибка EndSession {spid}: {ex.Message}");
+            }
+        }
 
         static void LogKill(
            string user,
