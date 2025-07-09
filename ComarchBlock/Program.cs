@@ -16,8 +16,14 @@ namespace ComarchBlock
             "ADMIN","Zarząd","Biuro Księgowe","TSL SILESIA SP. Z O.O."
         };
 
-        static void Main()
+        static void Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--popup")
+            {
+                string msg = args.Length > 1 ? string.Join(" ", args.Skip(1)) : "";
+                MessageSender.ShowPopup(msg);
+                return;
+            }
             try
             {
                 var config = LoadConfig("config.xml");
@@ -86,6 +92,7 @@ namespace ComarchBlock
                             var toTerminate = active.Skip(max).ToList();
                             foreach (var s in toTerminate)
                             {
+                                MessageSender.Send(s.UserName, "License limit reached. Session will be closed.");
                                 KillSession(s.Spid, s.UserName, context, "ModuleLimit", s, null, max, active);
                                 sessions.RemoveAll(x => x.Spid == s.Spid);
                             }
@@ -146,6 +153,7 @@ namespace ComarchBlock
                             var toKill = ordered.Skip(max).ToList();
                             foreach (var s in toKill)
                             {
+                                MessageSender.Send(s.UserName, "License limit reached. Session will be closed.");
                                 KillSession(s.Spid, s.UserName, context, "ModuleGroupLimit", s, group, max, ordered);
                             }
                         }
