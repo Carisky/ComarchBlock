@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
-using Newtonsoft.Json;
 using TSL.Data.Models.ERPXL_TSL;
 using ComarchBlock.dto;
+using ComarchBlock.entities;
 
 namespace ComarchBlock.utils
 {
@@ -26,14 +25,29 @@ namespace ComarchBlock.utils
             if (Config == null)
                 return false;
 
-            UserGroups = LoadJson<Dictionary<string, UserGroupEntry>>("UserGroups.json");
-            var groupLimitList = LoadJson<List<GroupModuleLimit>>("GroupModuleLimits.json");
-            GroupModuleLimits = groupLimitList.ToDictionary(x => (x.GroupCode, x.Module, x.Hour), x => x.MaxLicenses);
-            ModuleLimits = LoadJson<Dictionary<string, int>>("ModuleLimits.json");
-            LinkedModules = LoadJson<Dictionary<string, List<string>>>("LinkedModules.json");
-
             var options = new DbContextOptionsBuilder<ERPXL_TSLContext>().UseSqlServer(_connStr).Options;
             DbContext = new ERPXL_TSLContext(options);
+
+            if (DbContext == null)
+                return false;
+
+            UserGroups = DbContext.UserGroupsDb
+                .ToDictionary(x => x.UserName, x => new UserGroupEntry
+                {
+                    Group = x.Group,
+                    WindowsUser = x.WindowsUser
+                });
+
+            GroupModuleLimits = DbContext.GroupModuleLimitsDb
+                .ToDictionary(x => (x.GroupCode, x.Module, x.Hour), x => x.MaxLicenses);
+
+            ModuleLimits = DbContext.ModuleLimitsDb
+                .ToDictionary(x => x.Module, x => x.MaxLicenses);
+
+            LinkedModules = DbContext.LinkedModulesDb
+                .AsEnumerable()
+                .GroupBy(x => x.ModuleKey)
+                .ToDictionary(g => g.Key, g => g.Select(l => l.LinkedModule).ToList());
 
             return true;
         }
@@ -53,19 +67,5 @@ namespace ComarchBlock.utils
             }
         }
 
-        private static T LoadJson<T>(string path) where T : new()
-        {
-            try
-            {
-                if (!File.Exists(path)) return new();
-                var json = File.ReadAllText(path);
-                return JsonConvert.DeserializeObject<T>(json) ?? new();
-            }
-            catch (Exception ex)
-            {
-                SessionManager.Log("ERROR", $"Failed to load {path}: {ex.Message}");
-                return new();
-            }
-        }
     }
 }
