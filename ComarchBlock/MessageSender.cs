@@ -1,9 +1,6 @@
-using System;
 using System.Diagnostics;
-using System.Drawing;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
+
 
 namespace ComarchBlock
 {
@@ -90,31 +87,42 @@ namespace ComarchBlock
 
         public static void ShowPopup(string message)
         {
-            var form = new Form
-            {
-                TopMost = true,
-                FormBorderStyle = FormBorderStyle.None,
-                StartPosition = FormStartPosition.Manual,
-                Location = new Point(Screen.PrimaryScreen!.Bounds.Width - 350, Screen.PrimaryScreen!.Bounds.Height - 150),
-                Width = 300,
-                Height = 100,
-                BackColor = Color.Gray,
-                Opacity = 0.8,
-                ShowInTaskbar = false
-            };
+            // ”никальное им€ mutex Ч можно сделать фиксированным, либо хешировать message
+            string mutexName = "ComarchBlock_Popup";
 
-            var label = new Label
+            bool createdNew;
+            using (var mutex = new System.Threading.Mutex(true, mutexName, out createdNew))
             {
-                Dock = DockStyle.Fill,
-                Text = message,
-                TextAlign = ContentAlignment.MiddleCenter,
-                Font = new Font("Segoe UI", 12, FontStyle.Bold),
-                ForeColor = Color.White
-            };
+                if (!createdNew)
+                    return; // ќкно уже показываетс€ Ч не запускаем второй экземпл€р
 
-            form.Controls.Add(label);
-            Application.Run(form);
+                var form = new Form
+                {
+                    TopMost = true,
+                    FormBorderStyle = FormBorderStyle.None,
+                    StartPosition = FormStartPosition.Manual,
+                    Location = new Point(Screen.PrimaryScreen!.Bounds.Width - 350, Screen.PrimaryScreen!.Bounds.Height - 150),
+                    Width = 300,
+                    Height = 100,
+                    BackColor = Color.Gray,
+                    Opacity = 0.8,
+                    ShowInTaskbar = false
+                };
+
+                var label = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    Text = message,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font = new System.Drawing.Font("Segoe UI", 12, FontStyle.Bold),
+                    ForeColor = Color.White
+                };
+
+                form.Controls.Add(label);
+                System.Windows.Forms.Application.Run(form);
+            }
         }
+
 
         #region Native
         [DllImport("wtsapi32.dll", SetLastError = true)]

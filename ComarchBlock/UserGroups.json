@@ -1,40 +1,154 @@
 {
-  "ARC_YEV": "SM",
-  "BAL_DAR": "DM",
-  "DAN_MIR": "LK",
-  "DMS": "BZ",
-  "DYL_KAT": "BZ",
-  "DZU_PAW": "LK",
-  "FAŁ_PAU": "AC",
-  "GAR_ART": "SSM",
-  "GAW_DAM": "ITT",
-  "GOS_URS": "OML",
-  "GUM_BEA": "Zarząd",
-  "HOV_NIN": "LK",
-  "IWA_MAR": "Biuro Księgowe",
-  "KLE_IWO": "BZ",
-  "KOC_KLA": "SSM",
-  "KOW_KRY": "Zarząd",
-  "KRA_MAT": "ITT",
-  "KWA_TRE": "AC",
-  "MAD_AGN": "AC",
-  "MAJ_ILO": "AC",
-  "MAL_JOL": "BZ",
-  "MAT_MAL": "SSM",
-  "MIC_MON": "BZ",
-  "MUS_PR": "SM",
-  "NIE_KRZ": "TSL SILESIA SP. Z O.O.",
-  "NOW_DAW": "ITT",
-  "PEM_SYL": "ACH",
-  "PLI_WIK": "DM",
-  "POP_KAT": "BZ",
-  "SEM_PAT": "OML",
-  "SŁO_ALE": "Zarząd",
-  "SYM_AGA": "OML",
-  "SYM_MA": "Zarząd",
-  "TUR_MAR": "SM",
-  "TUR_WIK": "DM",
-  "WAR_PAU": "LK",
-  "ZAJ_RAF": "ITT",
-  "ŻMU_DAR": "DM"
+  "ARC_YEV": {
+    "Group": "SM",
+    "WindowsUser": ""
+  },
+  "BAL_DAR": {
+    "Group": "DM",
+    "WindowsUser": ""
+  },
+  "DAN_MIR": {
+    "Group": "LK",
+    "WindowsUser": ""
+  },
+  "DMS": {
+    "Group": "BZ",
+    "WindowsUser": ""
+  },
+  "DYL_KAT": {
+    "Group": "BZ",
+    "WindowsUser": ""
+  },
+  "DZU_PAW": {
+    "Group": "LK",
+    "WindowsUser": ""
+  },
+  "FAŁ_PAU": {
+    "Group": "AC",
+    "WindowsUser": "pfalda"
+  },
+  "GAR_ART": {
+    "Group": "SSM",
+    "WindowsUser": ""
+  },
+  "GAW_DAM": {
+    "Group": "ITT",
+    "WindowsUser": ""
+  },
+  "GOS_URS": {
+    "Group": "OML",
+    "WindowsUser": ""
+  },
+  "GUM_BEA": {
+    "Group": "Zarząd",
+    "WindowsUser": "bgumula"
+  },
+  "HOV_NIN": {
+    "Group": "LK",
+    "WindowsUser": ""
+  },
+  "IWA_MAR": {
+    "Group": "Biuro Księgowe",
+    "WindowsUser": "miwanek"
+  },
+  "KLE_IWO": {
+    "Group": "BZ",
+    "WindowsUser": ""
+  },
+  "KOC_KLA": {
+    "Group": "SSM",
+    "WindowsUser": ""
+  },
+  "KOW_KRY": {
+    "Group": "Zarząd",
+    "WindowsUser": ""
+  },
+  "KRA_MAT": {
+    "Group": "ITT",
+    "WindowsUser": ""
+  },
+  "KWA_TRE": {
+    "Group": "AC",
+    "WindowsUser": ""
+  },
+  "MAD_AGN": {
+    "Group": "AC",
+    "WindowsUser": "amadura"
+  },
+  "MAJ_ILO": {
+    "Group": "AC",
+    "WindowsUser": "imajda"
+  },
+  "MAL_JOL": {
+    "Group": "BZ",
+    "WindowsUser": ""
+  },
+  "MAT_MAL": {
+    "Group": "SSM",
+    "WindowsUser": ""
+  },
+  "MIC_MON": {
+    "Group": "BZ",
+    "WindowsUser": ""
+  },
+  "MUS_PR": {
+    "Group": "SM",
+    "WindowsUser": ""
+  },
+  "NIE_KRZ": {
+    "Group": "TSL SILESIA SP. Z O.O.",
+    "WindowsUser": ""
+  },
+  "NOW_DAW": {
+    "Group": "ITT",
+    "WindowsUser": ""
+  },
+  "PEM_SYL": {
+    "Group": "ACH",
+    "WindowsUser": "spempko"
+  },
+  "PLI_WIK": {
+    "Group": "DM",
+    "WindowsUser": ""
+  },
+  "POP_KAT": {
+    "Group": "BZ",
+    "WindowsUser": ""
+  },
+  "SEM_PAT": {
+    "Group": "OML",
+    "WindowsUser": ""
+  },
+  "SŁO_ALE": {
+    "Group": "Zarząd",
+    "WindowsUser": "aslota"
+  },
+  "SYM_AGA": {
+    "Group": "OML",
+    "WindowsUser": "ASymeczko"
+  },
+  "SYM_MA": {
+    "Group": "Zarząd",
+    "WindowsUser": ""
+  },
+  "TUR_MAR": {
+    "Group": "SM",
+    "WindowsUser": ""
+  },
+  "TUR_WIK": {
+    "Group": "DM",
+    "WindowsUser": ""
+  },
+  "WAR_PAU": {
+    "Group": "LK",
+    "WindowsUser": ""
+  },
+  "ZAJ_RAF": {
+    "Group": "ITT",
+    "WindowsUser": ""
+  },
+  "ŻMU_DAR": {
+    "Group": "DM",
+    "WindowsUser": ""
+  }
 }
