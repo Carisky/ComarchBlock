@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using System.Text;
 using TSL.Data.Models.ERPXL_TSL;
 using static ComarchBlock.utils.SessionManager;
+using static ComarchBlock.utils.PendingKillManager;
 
 namespace ComarchBlock
 {
@@ -32,6 +33,9 @@ namespace ComarchBlock
             var moduleLimits = init.ModuleLimits;
             var linkedModulesMap = init.LinkedModules;
             using var context = init.DbContext!;
+
+            Load();
+            ProcessDueKills(context);
 
             var sessions = context.Sesjes
                 .Where(s => s.SesStop == 0 && s.SesAdospid != null)
@@ -144,9 +148,21 @@ namespace ComarchBlock
                     continue;
                 }
 
-                // Wyświetlenie powiadomienia po polsku
-                MessageSender.Send(entry.WindowsUser, "Limit licencji został przekroczony. Sesja zostanie zamknięta.");
-                KillSession(s.Spid, s.UserName, context, reason, s, group, max, ordered);
+                if (Get(s.Spid) == null)
+                {
+                    MessageSender.Send(entry.WindowsUser, "Limit licencji został przekroczony. Sesja zostanie zamknięta za 5 minut.");
+                    Add(new PendingKillEntry
+                    {
+                        Spid = s.Spid,
+                        UserName = s.UserName,
+                        Module = s.Module,
+                        Start = s.Start,
+                        Reason = reason,
+                        Group = group,
+                        Max = max,
+                        KillTime = DateTime.Now.AddMinutes(5)
+                    });
+                }
             }
         }
         static bool IsSpidActive(int spid)
