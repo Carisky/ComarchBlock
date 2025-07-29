@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using TSL.Data.Models.ERPXL_TSL;
-using ComarchBlock.dto;
 using ComarchBlock.entities;
 
 namespace ComarchBlock.utils
@@ -11,7 +10,7 @@ namespace ComarchBlock.utils
     public class AppInitializer
     {
         public AppConfig? Config { get; private set; }
-        public Dictionary<string, UserGroupEntry> UserGroups { get; private set; } = new();
+        public Dictionary<string, DbUserGroup> UserGroups { get; private set; } = new();
         public Dictionary<(string Group, string Module, int Hour), int> GroupModuleLimits { get; private set; } = new();
         public Dictionary<string, int> ModuleLimits { get; private set; } = new();
         public Dictionary<string, List<string>> LinkedModules { get; private set; } = new();
@@ -32,11 +31,7 @@ namespace ComarchBlock.utils
                 return false;
 
             UserGroups = DbContext.UserGroupsDb
-                .ToDictionary(x => x.UserName, x => new UserGroupEntry
-                {
-                    Group = x.Group,
-                    WindowsUser = x.WindowsUser
-                });
+                .ToDictionary(x => x.UserName, x => x);
 
             GroupModuleLimits = DbContext.GroupModuleLimitsDb
                 .ToDictionary(x => (x.GroupCode, x.Module, x.Hour), x => x.MaxLicenses);
