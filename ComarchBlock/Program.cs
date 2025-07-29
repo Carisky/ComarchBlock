@@ -7,6 +7,8 @@ using TSL.Data.Models.ERPXL_TSL;
 using static ComarchBlock.utils.SessionManager;
 using static ComarchBlock.utils.PendingKillManager;
 
+// ... using directives остаются без изменений
+
 namespace ComarchBlock
 {
     internal class Program
@@ -18,96 +20,130 @@ namespace ComarchBlock
 
         static void Main(string[] args)
         {
-            if (args.Length > 0 && args[0] == "--popup")
+            try
             {
-                MessageSender.ShowPopup(string.Join(" ", args.Skip(1)));
-                return;
-            }
+                Log("DEBUG", "=== Application started ===");
 
-            var init = new AppInitializer();
-            if (!init.Initialize()) return;
-
-            var config = init.Config!;
-            var userGroups = init.UserGroups;
-            var groupModuleLimits = init.GroupModuleLimits;
-            var moduleLimits = init.ModuleLimits;
-            var linkedModulesMap = init.LinkedModules;
-            using var context = init.DbContext!;
-
-            Load();
-            ProcessDueKills(context);
-
-            var sessions = context.Sesjes
-                .Where(s => s.SesStop == 0 && s.SesAdospid != null)
-                .Select(s => new SessionInfo
+                if (args.Length > 0 && args[0] == "--popup")
                 {
-                    Spid = (int)s.SesAdospid,
-                    UserName = s.SesOpeIdent,
-                    Module = s.SesModul,
-                    Start = (long)(s.SesStart ?? 0)
-                })
-                .ToList();
-
-            Log("INFO", $"Found {sessions.Count} active sessions.");
-
-            if (sessions.Count <= config.ActiveUsersCheck)
-            {
-                Log("INFO", $"Active sessions ({sessions.Count}) ≤ threshold ({config.ActiveUsersCheck}). Skip processing.");
-                return;
-            }
-
-            var now = DateTime.Now;
-            var currentHour = now.Hour;
-
-            foreach (var modGroup in sessions.GroupBy(s => s.Module ?? string.Empty))
-            {
-                if (moduleLimits.TryGetValue(modGroup.Key, out var max))
-                {
-                    EnforceLimit(modGroup, max, context, userGroups, "ModuleLimit");
-                    sessions.RemoveAll(s => !modGroup.Any(x => x.Spid == s.Spid));
+                    Log("DEBUG", "Popup argument detected.");
+                    MessageSender.ShowPopup(string.Join(" ", args.Skip(1)));
+                    return;
                 }
-                else
+
+                Log("DEBUG", "Initializing application...");
+                var init = new AppInitializer();
+                if (!init.Initialize())
                 {
-                    Log("INFO", $"[Module: {modGroup.Key}] — no limit, skip.");
+                    Log("ERROR", "Initialization failed.");
+                    return;
                 }
-            }
 
-            var groupModuleSessions = sessions
-                .Where(s => userGroups.ContainsKey(s.UserName))
-                .Select(s => new { s, Entry = userGroups[s.UserName] })
-                .GroupBy(x => (x.Entry.Group, x.s.Module ?? string.Empty));
+                Log("DEBUG", "Initialization successful.");
+                var config = init.Config!;
+                var userGroups = init.UserGroups;
+                var groupModuleLimits = init.GroupModuleLimits;
+                var moduleLimits = init.ModuleLimits;
+                var linkedModulesMap = init.LinkedModules;
 
-            foreach (var g in groupModuleSessions)
-            {
-                var (group, module) = g.Key;
-                var key = (group, module, currentHour);
+                Log("DEBUG", $"Loaded config: {JsonConvert.SerializeObject(config)}");
+                Log("DEBUG", $"UserGroups count: {userGroups.Count}");
+                Log("DEBUG", $"GroupModuleLimits count: {groupModuleLimits.Count}");
+                Log("DEBUG", $"ModuleLimits count: {moduleLimits.Count}");
+                Log("DEBUG", $"LinkedModulesMap count: {linkedModulesMap.Count}");
 
-                if (!groupModuleLimits.TryGetValue(key, out var max))
-                {
-                    string? linkedKey = linkedModulesMap
-                        .FirstOrDefault(kv => kv.Value.Contains(module)).Key;
+                using var context = init.DbContext!;
+                Log("DEBUG", "Loading pending kills...");
+                Load();
+                Log("DEBUG", "Processing due kills...");
+                ProcessDueKills(context);
 
-                    if (!string.IsNullOrEmpty(linkedKey))
+                Log("DEBUG", "Fetching active sessions...");
+                var sessions = context.Sesjes
+                    .Where(s => s.SesStop == 0 && s.SesAdospid != null)
+                    .Select(s => new SessionInfo
                     {
-                        var fallbackKey = (group, linkedKey, currentHour);
-                        if (!groupModuleLimits.TryGetValue(fallbackKey, out max))
+                        Spid = (int)s.SesAdospid,
+                        UserName = s.SesOpeIdent,
+                        Module = s.SesModul,
+                        Start = (long)(s.SesStart ?? 0)
+                    })
+                    .ToList();
+
+                Log("INFO", $"Found {sessions.Count} active sessions.");
+
+                if (sessions.Count <= config.ActiveUsersCheck)
+                {
+                    Log("INFO", $"Active sessions ({sessions.Count}) ≤ threshold ({config.ActiveUsersCheck}). Skip processing.");
+                    return;
+                }
+
+                var now = DateTime.Now;
+                var currentHour = now.Hour;
+
+                Log("DEBUG", "Checking module limits...");
+                foreach (var modGroup in sessions.GroupBy(s => s.Module ?? string.Empty))
+                {
+                    Log("DEBUG", $"Processing module: {modGroup.Key}");
+
+                    if (moduleLimits.TryGetValue(modGroup.Key, out var max))
+                    {
+                        Log("DEBUG", $"Enforcing module limit: {max} for {modGroup.Key}");
+                        EnforceLimit(modGroup, max, context, userGroups, "ModuleLimit");
+                        sessions.RemoveAll(s => !modGroup.Any(x => x.Spid == s.Spid));
+                    }
+                    else
+                    {
+                        Log("INFO", $"[Module: {modGroup.Key}] — no limit, skip.");
+                    }
+                }
+
+                Log("DEBUG", "Checking group-module limits...");
+                var groupModuleSessions = sessions
+                    .Where(s => userGroups.ContainsKey(s.UserName))
+                    .Select(s => new { s, Entry = userGroups[s.UserName] })
+                    .GroupBy(x => (x.Entry.Group, x.s.Module ?? string.Empty));
+
+                foreach (var g in groupModuleSessions)
+                {
+                    var (group, module) = g.Key;
+                    var key = (group, module, currentHour);
+                    Log("DEBUG", $"Checking limit for Group: {group}, Module: {module}, Hour: {currentHour}");
+
+                    if (!groupModuleLimits.TryGetValue(key, out var max))
+                    {
+                        string? linkedKey = linkedModulesMap
+                            .FirstOrDefault(kv => kv.Value.Contains(module)).Key;
+
+                        if (!string.IsNullOrEmpty(linkedKey))
                         {
-                            if (!moduleLimits.TryGetValue(module, out max))
+                            Log("DEBUG", $"Fallback to linked module: {linkedKey}");
+                            var fallbackKey = (group, linkedKey, currentHour);
+                            if (!groupModuleLimits.TryGetValue(fallbackKey, out max))
                             {
-                                Log("INFO", $"[Group: {group}, Module: {module}] — no limit, skip.");
-                                continue;
+                                if (!moduleLimits.TryGetValue(module, out max))
+                                {
+                                    Log("INFO", $"[Group: {group}, Module: {module}] — no limit, skip.");
+                                    continue;
+                                }
                             }
                         }
+                        else if (!moduleLimits.TryGetValue(module, out max))
+                        {
+                            Log("INFO", $"[Group: {group}, Module: {module}] — no limit, skip.");
+                            continue;
+                        }
                     }
-                    else if (!moduleLimits.TryGetValue(module, out max))
-                    {
-                        Log("INFO", $"[Group: {group}, Module: {module}] — no limit, skip.");
-                        continue;
-                    }
+
+                    var ordered = g.Select(x => x.s).OrderBy(x => x.Start).Where(x => !ExceptionUsers.Contains(x.UserName));
+                    EnforceLimit(ordered, max, context, userGroups, "ModuleGroupLimit", group);
                 }
 
-                var ordered = g.Select(x => x.s).OrderBy(x => x.Start).Where(x => !ExceptionUsers.Contains(x.UserName));
-                EnforceLimit(ordered, max, context, userGroups, "ModuleGroupLimit", group);
+                Log("DEBUG", "=== Application finished successfully ===");
+            }
+            catch (Exception ex)
+            {
+                Log("ERROR", $"Unhandled exception: {ex}");
             }
         }
 
@@ -124,12 +160,17 @@ namespace ComarchBlock
                 .Where(s => !ExceptionUsers.Contains(s.UserName))
                 .ToList();
 
+            Log("DEBUG", $"Enforcing limit. Max allowed: {max}, current: {ordered.Count}");
+
             if (ordered.Count <= max) return;
 
             var toKill = ordered.Skip(max).ToList();
+            Log("DEBUG", $"Need to kill {toKill.Count} session(s).");
 
             foreach (var s in toKill)
             {
+                Log("DEBUG", $"Processing session: {JsonConvert.SerializeObject(s)}");
+
                 if (!userGroups.TryGetValue(s.UserName, out var entry))
                 {
                     Log("INFO", $"User {s.UserName} not found in userGroups. Skipping.");
@@ -150,6 +191,7 @@ namespace ComarchBlock
 
                 if (Get(s.Spid) == null)
                 {
+                    Log("DEBUG", $"Sending warning to user {entry.WindowsUser}.");
                     MessageSender.Send(entry.WindowsUser, "Limit licencji został przekroczony. Sesja zostanie zamknięta za 5 minut.");
                     Add(new PendingKillEntry
                     {
@@ -163,8 +205,13 @@ namespace ComarchBlock
                         KillTime = DateTime.Now.AddMinutes(5)
                     });
                 }
+                else
+                {
+                    Log("DEBUG", $"Session {s.Spid} already scheduled for kill.");
+                }
             }
         }
+
         static bool IsSpidActive(int spid)
         {
             try
@@ -172,12 +219,12 @@ namespace ComarchBlock
                 var process = System.Diagnostics.Process.GetProcessById(spid);
                 return !process.HasExited;
             }
-            catch
+            catch (Exception ex)
             {
+                Log("WARN", $"SPID {spid} not found: {ex.Message}");
                 return false;
             }
         }
-
     }
 }
 
