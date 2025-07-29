@@ -1,11 +1,11 @@
-using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore;
 
 namespace ComarchBlock.entities
 {
+    [Keyless]
     public class DbLinkedModule
     {
-        [Key]
-        public int Id { get; set; }
         public string ModuleKey { get; set; } = string.Empty;
         public string LinkedModule { get; set; } = string.Empty;
     }

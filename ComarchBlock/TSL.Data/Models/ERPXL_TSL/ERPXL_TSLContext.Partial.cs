@@ -32,7 +32,7 @@ namespace TSL.Data.Models.ERPXL_TSL
             modelBuilder.Entity<DbGroupModuleLimit>(entity =>
             {
                 entity.ToTable("GroupModuleLimits");
-                entity.HasKey(e => e.Id);
+                entity.HasNoKey();
                 entity.Property(e => e.GroupCode).HasColumnName("GroupCode");
                 entity.Property(e => e.Module).HasColumnName("Module");
                 entity.Property(e => e.Hour).HasColumnName("Hour");
@@ -42,7 +42,7 @@ namespace TSL.Data.Models.ERPXL_TSL
             modelBuilder.Entity<DbLinkedModule>(entity =>
             {
                 entity.ToTable("LinkedModules");
-                entity.HasKey(e => e.Id);
+                entity.HasNoKey();
                 entity.Property(e => e.ModuleKey).HasColumnName("ModuleKey");
                 entity.Property(e => e.LinkedModule).HasColumnName("LinkedModule");
             });
