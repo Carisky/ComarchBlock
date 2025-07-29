@@ -1,5 +1,6 @@
 ﻿using ComarchBlock.dto;
 using ComarchBlock.utils;
+using ComarchBlock.entities;
 using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System.Text;
@@ -151,7 +152,7 @@ namespace ComarchBlock
             IEnumerable<SessionInfo> sessions,
             int max,
             ERPXL_TSLContext context,
-            Dictionary<string, UserGroupEntry> userGroups,
+            Dictionary<string, DbUserGroup> userGroups,
             string reason,
             string? group = null)
         {
